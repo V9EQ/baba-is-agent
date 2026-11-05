@@ -80,9 +80,15 @@ Use the configuration in [`examples/mcp.json`](examples/mcp.json), replacing the
 project path. The server uses **stdio**, with diagnostics on stderr. Running `baba-mcp` without
 a subcommand is equivalent to `baba-mcp serve`.
 
-The client must pass `DISPLAY` and `XAUTHORITY` from the current desktop session for menu
-input. Environment interpolation differs between MCP clients; `examples/client.py` explicitly
-inherits the environment.
+Complete [Quick start](#quick-start) first: client registration does not install the game-side
+bridge. Run the commands below **from the clone's root directory**, with `uv` on `PATH`.
+`"$PWD"` is saved as an absolute path, so keep the clone at that location.
+
+Start the client as your normal desktop user on the same machine as the game. The server
+needs the current desktop session's `DISPLAY` and, where used, `XAUTHORITY` for menu input.
+If you set `BABA_GAME_DIR`, make sure the client passes it to the server as well.
+Environment interpolation differs between clients; `examples/client.py` explicitly inherits
+the environment. Connect any of these clients, but do not let them control the game concurrently.
 
 ### Pi
 
@@ -100,6 +106,67 @@ pi mcp list
 
 Run `/reload` in an existing Pi session after changing external configuration. To use a
 project-local registration instead, add `--local` and grant project trust when prompted.
+User configuration lives in `~/.pi/agent/mcp.json`; project configuration in `.pi/mcp.json`.
+`--exposure direct` makes the game tools available without a tool-search step.
+
+See the [Pi MCP documentation](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/mcp.md).
+These commands require a Pi version with built-in `pi mcp` support.
+
+### Codex CLI
+
+Register the local stdio server:
+
+```bash
+codex mcp add baba \
+  --env "DISPLAY=${DISPLAY}" \
+  --env "XAUTHORITY=${XAUTHORITY:-}" \
+  -- uv run --project "$PWD" baba-mcp
+codex mcp list
+```
+
+Restart an existing Codex session after changing configuration; use `/mcp` inside Codex to
+inspect the connection. The CLI saves the entry in `~/.codex/config.toml`.
+
+The command above saves the **current values** of the desktop variables. To forward fresh
+values whenever Codex starts, remove those two entries from `[mcp_servers.baba.env]` and add
+this field to the existing `[mcp_servers.baba]` table instead:
+
+```toml
+env_vars = ["DISPLAY", "XAUTHORITY"]
+```
+
+For project-only configuration, put the server's TOML tables in `.codex/config.toml` instead;
+Codex reads project configuration only in trusted projects. Add `BABA_GAME_DIR` to `env_vars`
+if needed. See the [Codex MCP documentation](https://developers.openai.com/codex/mcp/).
+
+### Claude Code
+
+Register for your user account (available across projects):
+
+```bash
+claude mcp add --transport stdio --scope user \
+  --env "DISPLAY=${DISPLAY}" \
+  --env "XAUTHORITY=${XAUTHORITY:-}" \
+  baba -- uv run --project "$PWD" baba-mcp
+claude mcp get baba
+```
+
+Restart an existing Claude Code session, then use `/mcp` to inspect the connection and approve
+tool use when prompted. User-scoped servers are stored in `~/.claude.json`.
+
+The command saves the **current values** of the desktop variables; update them if your desktop
+session changes. For a shared project registration, replace `--scope user` with `--scope project`:
+this writes `.mcp.json`, and Claude Code asks for approval before using its servers. The saved
+clone path and desktop values are machine-specific; review them before sharing that file.
+For a private registration limited to the current project, use `--scope local` instead.
+See the [Claude Code MCP documentation](https://code.claude.com/docs/en/mcp).
+
+### Verify the connection
+
+With the game running and the bridge installed, ask the agent to call `baba.get_board` (the
+client may display a prefix such as `mcp__baba__get_board`). It should return the current board
+and rules. A successful MCP connection alone does not prove the game bridge or menu input
+permissions work; use `uv run baba-mcp doctor --live` to diagnose those separately.
 
 ## Tools
 
@@ -255,7 +322,17 @@ uv run baba-mcp uninstall
 ```
 
 Restart the game afterwards. This removes only recognized bridge files, not saves or other
-mods. Remove the MCP client registration separately (`pi mcp remove baba` for Pi).
+mods. Remove the MCP client registration separately:
+
+```bash
+pi mcp remove baba
+codex mcp remove baba
+claude mcp remove --scope user baba
+```
+
+Run only the command for the client you configured. For project-local Pi registration, add
+`--local`; for Claude Code, use the same `--scope` you used when adding the server. If you
+configured Codex by editing a TOML file, remove its `[mcp_servers.baba]` tables from that file.
 
 ## Security and licensing
 
