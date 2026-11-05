@@ -35,20 +35,41 @@ def create_server(service: GameService) -> FastMCP:
 
     @server.tool(annotations=read_only)
     def get_board() -> CallToolResult:
-        """Read compact exact board and rules once per scene. at=[x,y,dir,id]. No OCR."""
+        """Read exact board and rules once per scene or when refresh=get_board.
+
+        Coordinates are zero-based, x rightward and y downward. Object at entries
+        are [x,y,direction,id]; directions right=0,up=1,left=2,down=3,idle=4.
+        Rules include conditions: do not infer mechanics from object names alone.
+        On a map, move the select cursor with act, then press(key='confirm').
+        """
         with output.lock:
             return output.render(service.get_state(), "board")
 
     @server.tool(annotations=interactive)
     def act(actions: list[Action] | str, view: View = "delta") -> CallToolResult:
-        """Execute a planned batch, e.g. 'R8 U2 Z', in one call. Return only changes by default."""
+        """Execute 1..64 planned moves, e.g. actions='R8 U2 Z', in one call.
+
+        U/D/L/R move, W waits, Z undoes; alternatively pass a list of action names.
+        Batch safe travel together; use short batches near uncertain interactions.
+        executed counts processed commands, not successful movement. Batches stop
+        on win, loss of an initially present player, or scene transition.
+        Delta units=[id,name,x,y,direction,properties]; removed lists deleted IDs.
+        Unmentioned state is unchanged. Coordinates are zero-based (x right, y down).
+        If refresh=get_board, read the new scene. Use press for menus and intros;
+        act has no select/confirm action. Do not blindly retry timed-out actions.
+        """
         with output.lock:
             result = service.act(actions)
             return output.render(result.state, view, executed=result.executed)
 
     @server.tool(annotations=interactive)
     def press(key: Key, view: View = "delta") -> CallToolResult:
-        """Menu/introduction/AUTO key. Returns a small delta; use act for batched puzzle moves."""
+        """Press a menu/introduction/AUTO key; use act for batched puzzle moves.
+
+        On a map, press(key='confirm') enters the level under the select cursor.
+        If menu='levelintro', confirm dismisses the introduction. Delta replies
+        omit unchanged state; refresh=get_board means read the new scene.
+        """
         with output.lock:
             return output.render(service.press(key), view)
 

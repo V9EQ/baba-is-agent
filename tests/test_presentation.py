@@ -63,6 +63,13 @@ def test_compact_board_keeps_inert_objects_and_coordinates():
     ]
 
 
+def test_board_is_self_describing_without_server_instructions():
+    board = compact_board(make_state())
+    assert board["legend"]["at"] == ["x", "y", "direction", "id"]
+    assert board["legend"]["directions"]["idle"] == 4
+    assert "Unmentioned state is unchanged" in board["legend"]["delta"]
+
+
 def test_compact_actions_are_expanded_once():
     assert parse_actions("R3 U2,Z") == ["right"] * 3 + ["up"] * 2 + ["undo"]
 

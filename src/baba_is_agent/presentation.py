@@ -36,6 +36,13 @@ def compact_board(state: GameState) -> JsonObject:
         assert isinstance(positions, list)
         positions.append([unit.x, unit.y, unit.dir, unit.id])
     result = {key: getattr(state, key) for key in _STATUS}
+    result["legend"] = {
+        "coordinates": "zero-based; x rightward, y downward",
+        "at": ["x", "y", "direction", "id"],
+        "delta_units": ["id", "name", "x", "y", "direction", "properties"],
+        "directions": {"right": 0, "up": 1, "left": 2, "down": 3, "idle": 4},
+        "delta": "Unmentioned state is unchanged; removed lists deleted IDs",
+    }
     result["size"] = [getattr(state, "width", 0), getattr(state, "height", 0)]
     result["objects"] = list(groups.values())
     result["rules"] = [rule.model_dump(mode="json") for rule in state.rules]
