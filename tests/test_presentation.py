@@ -73,9 +73,15 @@ def test_compact_board_keeps_inert_objects_and_coordinates():
 
 def test_board_is_self_describing_without_server_instructions():
     board = compact_board(make_state())
-    assert board["legend"]["at"] == ["x", "y", "direction", "id"]
-    assert board["legend"]["directions"]["idle"] == 4
-    assert "Unmentioned state is unchanged" in board["legend"]["delta"]
+    legend = board["legend"]
+    assert isinstance(legend, dict)
+    assert legend["at"] == ["x", "y", "direction", "id"]
+    directions = legend["directions"]
+    assert isinstance(directions, dict)
+    assert directions["idle"] == 4
+    delta = legend["delta"]
+    assert isinstance(delta, str)
+    assert "Unmentioned state is unchanged" in delta
 
 
 def test_compact_actions_are_expanded_once():

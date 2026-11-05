@@ -37,7 +37,10 @@ def test_stdio_handshake_tools_and_read_only_metadata(settings):
                     "list_levels",
                     "launch_game",
                 }
-                descriptions = {tool.name: tool.description for tool in tools}
+                descriptions: dict[str, str] = {}
+                for tool in tools:
+                    assert isinstance(tool.description, str)
+                    descriptions[tool.name] = tool.description
                 assert "1..64" in descriptions["act"]
                 assert "Unmentioned state is unchanged" in descriptions["act"]
                 assert "[id,name,x,y,direction,properties]" in descriptions["act"]
