@@ -54,7 +54,9 @@ def create_server(service: GameService) -> FastMCP:
         requested/executed count requested/processed commands, not successful movement.
         board_changed compares visible objects/rules/scene, not hidden engine state.
         controlled always contains current controller positions; stop_reason explains
-        completion/interruption. No ordinary control: undo rather than repeat moves. Batches stop
+        completion/interruption. With no ordinary control, directions/waits are not
+        sent (executed=0, stop_reason=control_lost); start with Z to undo, or restart.
+        Maps, LEVEL/EMPTY IS YOU, and AUTO are exempt from this guard. Batches stop
         on win, loss of an initially present player, or scene transition.
         Delta units=[id,name,x,y,direction,properties]; removed lists deleted IDs.
         Unmentioned state is unchanged. Coordinates are zero-based (x right, y down).

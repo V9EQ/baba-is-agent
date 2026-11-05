@@ -57,6 +57,17 @@ def control_context(state: GameState) -> JsonObject:
     return data
 
 
+def ordinary_control_lost(state: GameState) -> bool:
+    """Conservatively exempt maps, special YOU rules, AUTO, and unready scenes."""
+    context = control_context(state)
+    return (
+        state.ready
+        and bool(state.no_player)
+        and context["phase"] == "puzzle"
+        and context["controller"] == "none"
+    )
+
+
 def action_result(
     initial: GameState, current: GameState, requested: int, executed: int
 ) -> ActionResult:
@@ -68,6 +79,8 @@ def action_result(
         reason = "transition"
     elif not current.ready:
         reason = "not_ready"
+    elif ordinary_control_lost(current):
+        reason = "control_lost"
     elif current.no_player and any(
         {"you", "you2"}.intersection(u.properties) for u in initial.units
     ):

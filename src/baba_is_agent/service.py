@@ -8,7 +8,7 @@ import time
 
 from baba_is_agent.config import STEAM_APP_ID, Settings
 from baba_is_agent.errors import BabaError, GameActionError
-from baba_is_agent.feedback import action_result
+from baba_is_agent.feedback import action_result, ordinary_control_lost
 from baba_is_agent.input import Keyboard, LinuxKeyboard
 from baba_is_agent.models import Action, ActionResult, GameState, JsonObject, Key
 from baba_is_agent.transport import BridgeClient, BridgeGateway
@@ -91,22 +91,56 @@ class GameService:
             initial = session.request()
             if not initial.ready:
                 raise GameActionError("Not ready for gameplay. Inspect state or use menu input.")
+            if actions[0] != "undo" and ordinary_control_lost(initial):
+                return ActionResult(
+                    state=initial,
+                    requested=len(actions),
+                    executed=0,
+                    stop_reason="control_lost",
+                    board_changed=False,
+                )
             if "batch" in initial.capabilities:
-                native_actions = ["idle" if action == "wait" else action for action in actions]
+                # Verify recovery before sending directions. A batch starting without
+                # YOU cannot otherwise detect a later death using its initial baseline.
+                undo_count = next(
+                    (i for i, action in enumerate(actions) if action != "undo"), len(actions)
+                )
+                current = initial
+                executed = 0
+                if undo_count:
+                    current = session.request("batch", actions=["undo"] * undo_count)
+                    executed = current.executed
+                    if (
+                        executed != undo_count
+                        or undo_count == len(actions)
+                        or not current.ready
+                        or current.level_key != initial.level_key
+                        or current.wins != initial.wins
+                        or ordinary_control_lost(current)
+                    ):
+                        return action_result(initial, current, len(actions), executed)
+                native_actions = [
+                    "idle" if action == "wait" else action for action in actions[undo_count:]
+                ]
                 current = session.request("batch", actions=native_actions)
-                return action_result(initial, current, len(actions), current.executed)
+                return action_result(initial, current, len(actions), executed + current.executed)
             expects_player = any(
                 {"you", "you2"}.intersection(unit.properties) for unit in initial.units
             )
             current = initial
             executed = 0
             for action in actions:
+                if action != "undo" and ordinary_control_lost(current):
+                    break
                 if action == "undo":
                     current = session.request("undo")
                 else:
                     direction = "idle" if action == "wait" else action
                     current = session.request("move", direction)
                 executed += 1
+                expects_player = expects_player or any(
+                    {"you", "you2"}.intersection(unit.properties) for unit in current.units
+                )
                 if (
                     not current.ready
                     or (current.no_player and expects_player)

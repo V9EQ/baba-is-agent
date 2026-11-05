@@ -153,6 +153,11 @@ the MCP client so it sees the new tools and defaults.
   `executed` counts processed commands, including blocked moves, not successful displacement.
   `board_changed` compares visible objects, rules, dimensions, and scene, not hidden engine state.
   A stop reason of `control_lost` calls for undo/recovery, not further direction commands.
+- If the engine reports no player and there is no ordinary controller, `act` does not send
+  directions/waits: it returns `executed=0` and recovery guidance. Map cursors, parsed
+  LEVEL/EMPTY IS YOU rules, and AUTO are exempt. This guard is not a universal death detector.
+  Start a recovery sequence with `Z`, or call `restart_level`. A leading undo run is verified
+  before subsequent directions; native recovery-plus-travel may use two engine batches.
 - `rules` contains parsed word triples and their conditions. Do not treat every parsed rule
   as unconditional. `properties` reports common checked effects, not every property in the game.
 - `act` uses `command()`, `undo()`, `code()`, and `MF_update()` inside the real game.
