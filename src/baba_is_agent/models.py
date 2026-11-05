@@ -85,5 +85,16 @@ class GameState(WireModel):
 
 
 class ActionResult(BaseModel):
+    requested: int
     executed: int
+    stop_reason: Literal[
+        "completed",
+        "win",
+        "transition",
+        "not_ready",
+        "control_lost",
+        "control_changed",
+        "interrupted",
+    ]
+    board_changed: bool
     state: GameState

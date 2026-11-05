@@ -8,6 +8,7 @@ import time
 
 from baba_is_agent.config import STEAM_APP_ID, Settings
 from baba_is_agent.errors import BabaError, GameActionError
+from baba_is_agent.feedback import action_result
 from baba_is_agent.input import Keyboard, LinuxKeyboard
 from baba_is_agent.models import Action, ActionResult, GameState, JsonObject, Key
 from baba_is_agent.transport import BridgeClient, BridgeGateway
@@ -93,7 +94,7 @@ class GameService:
             if "batch" in initial.capabilities:
                 native_actions = ["idle" if action == "wait" else action for action in actions]
                 current = session.request("batch", actions=native_actions)
-                return ActionResult(executed=current.executed, state=current)
+                return action_result(initial, current, len(actions), current.executed)
             expects_player = any(
                 {"you", "you2"}.intersection(unit.properties) for unit in initial.units
             )
@@ -113,7 +114,7 @@ class GameService:
                     or current.level_key != initial.level_key
                 ):
                     break
-        return ActionResult(executed=executed, state=current)
+        return action_result(initial, current, len(actions), executed)
 
     def press(self, key: Key) -> GameState:
         """Native keyboard input for menus and realtime/AUTO levels, not exact turns."""

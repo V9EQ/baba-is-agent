@@ -42,6 +42,14 @@ def test_delta_omits_unchanged_world():
         "won": False,
         "executed": 1,
         "units": [[1, "baba", 3, 3, 0, ["you"]]],
+        "phase": "puzzle",
+        "ready": True,
+        "paused": 0,
+        "ignore": 0,
+        "no_player": 0,
+        "controller": "you",
+        "controlled": [{"id": 1, "name": "baba", "x": 3, "y": 3, "direction": 0}],
+        "can_undo": False,
     }
     assert "rules" not in result
     assert "frame" not in result

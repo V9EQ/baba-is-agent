@@ -51,7 +51,10 @@ def create_server(service: GameService) -> FastMCP:
 
         U/D/L/R move, W waits, Z undoes; alternatively pass a list of action names.
         Batch safe travel together; use short batches near uncertain interactions.
-        executed counts processed commands, not successful movement. Batches stop
+        requested/executed count requested/processed commands, not successful movement.
+        board_changed compares visible objects/rules/scene, not hidden engine state.
+        controlled always contains current controller positions; stop_reason explains
+        completion/interruption. No ordinary control: undo rather than repeat moves. Batches stop
         on win, loss of an initially present player, or scene transition.
         Delta units=[id,name,x,y,direction,properties]; removed lists deleted IDs.
         Unmentioned state is unchanged. Coordinates are zero-based (x right, y down).
@@ -60,7 +63,7 @@ def create_server(service: GameService) -> FastMCP:
         """
         with output.lock:
             result = service.act(actions)
-            return output.render(result.state, view, executed=result.executed)
+            return output.render(result.state, view, action=result)
 
     @server.tool(annotations=interactive)
     def press(key: Key, view: View = "delta") -> CallToolResult:

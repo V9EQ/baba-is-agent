@@ -143,7 +143,16 @@ the MCP client so it sees the new tools and defaults.
 ### State and action semantics
 
 - Coordinates start at zero. Directions: **right = 0, up = 1, left = 2, down = 3**.
-- `get_board().objects[*].at` contains `[x, y, direction, unit_id]` entries.
+- `get_board().objects[*].at` contains `[x, y, direction, unit_id]` entries. Boards include
+  a format legend; essential instructions are also in tool descriptions, not just server instructions.
+- Every reply includes `phase`, `ready`, `controller`, current `controlled` positions,
+  `no_player`, `can_undo`, and a `recovery_hint` when appropriate. These fields are snapshots,
+  even in delta mode. `controller="special"` flags parsed LEVEL/EMPTY IS YOU rules; conditions
+  may still prevent control. `no_player=1` alone does not imply death on maps or special levels.
+- Action replies include `requested`, `executed`, `stop_reason`, and `board_changed`.
+  `executed` counts processed commands, including blocked moves, not successful displacement.
+  `board_changed` compares visible objects, rules, dimensions, and scene, not hidden engine state.
+  A stop reason of `control_lost` calls for undo/recovery, not further direction commands.
 - `rules` contains parsed word triples and their conditions. Do not treat every parsed rule
   as unconditional. `properties` reports common checked effects, not every property in the game.
 - `act` uses `command()`, `undo()`, `code()`, and `MF_update()` inside the real game.

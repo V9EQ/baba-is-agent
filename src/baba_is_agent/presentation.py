@@ -6,7 +6,8 @@ from typing import Literal
 
 from mcp.types import CallToolResult, TextContent
 
-from baba_is_agent.models import GameState, JsonObject, JsonValue
+from baba_is_agent.feedback import control_context
+from baba_is_agent.models import ActionResult, GameState, JsonObject, JsonValue
 
 type View = Literal["delta", "summary", "board", "full"]
 _STATUS = ("world", "level", "name", "menu", "selected", "won", "no_player", "auto")
@@ -36,6 +37,7 @@ def compact_board(state: GameState) -> JsonObject:
         assert isinstance(positions, list)
         positions.append([unit.x, unit.y, unit.dir, unit.id])
     result = {key: getattr(state, key) for key in _STATUS}
+    result.update(control_context(state))
     result["legend"] = {
         "coordinates": "zero-based; x rightward, y downward",
         "at": ["x", "y", "direction", "id"],
@@ -59,7 +61,12 @@ class Presenter:
         self.has_board = False
 
     def render(
-        self, state: GameState, view: View, *, executed: int | None = None
+        self,
+        state: GameState,
+        view: View,
+        *,
+        executed: int | None = None,
+        action: ActionResult | None = None,
     ) -> CallToolResult:
         if view == "full":
             data = state.as_dict()
@@ -69,8 +76,11 @@ class Presenter:
             data = {key: getattr(state, key) for key in _STATUS}
         else:
             data = self._delta(state)
+        data.update(control_context(state))
         if executed is not None:
             data["executed"] = executed
+        if action is not None:
+            data.update(action.model_dump(mode="json", exclude={"state"}))
         if view != "summary":
             self.previous = state
         if view in {"board", "full"}:
