@@ -1,0 +1,28 @@
+# Python / uv
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Tool outputs
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+artifacts/
+
+# Local credentials, saves, and editor settings
+.env
+.env.*
+!.env.example
+backups/
+*.ba
+*.ba.tmp
+.pi/
+.idea/
+.vscode/
+.DS_Store

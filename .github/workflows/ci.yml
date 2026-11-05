@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: "3.13"
+      - name: Install development environment
+        run: uv sync --locked
+      - name: Lint
+        run: uv run ruff check .
+      - name: Check formatting
+        run: uv run ruff format --check .
+      - name: Check types
+        run: uv run ty check
+      - name: Test Python and MCP stdio
+        run: uv run pytest --cov=baba_is_agent --cov-report=term-missing
+      - name: Test sandboxed Lua bridge
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes lua5.4
+          lua5.4 tests/test_bridge.lua src/baba_is_agent/assets/bridge.lua
+      - name: Build distributions
+        run: uv build
+      - name: Check packaged Lua asset in an isolated wheel installation
+        run: >-
+          uv run --isolated --no-project --with "$(find dist -maxdepth 1 -name '*.whl' -print -quit)"
+          python -c 'from baba_is_agent.installer import bridge_source;
+          assert bridge_source().startswith("-- Baba MCP telemetry v2:")'

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "baba": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "/absolute/path/to/baba-is-agent",
+        "baba-mcp"
+      ]
+    }
+  }
+}
