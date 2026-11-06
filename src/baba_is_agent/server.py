@@ -144,10 +144,20 @@ def create_server(service: GameService, profile: Literal["expert", "lite"] = "ex
             return board_reply(service.get_state())
 
     @server.tool(annotations=interactive)
-    def act(actions: list[Action] | str, view: View = "delta") -> CallToolResult:
+    def act(
+        actions: Annotated[list[Action], Field(min_length=1, max_length=64)]
+        | Annotated[
+            str,
+            Field(
+                max_length=256, description="Compact moves: R4 U2 Z; or full names: right up undo"
+            ),
+        ],
+        view: View = "delta",
+    ) -> CallToolResult:
         """Execute 1..64 planned moves, e.g. actions='R8 U2 Z', in one call.
 
-        U/D/L/R move, W waits, Z undoes; alternatively pass a list of action names.
+        U/D/L/R move, W waits, Z undoes; full names such as 'right up undo'
+        or a list ["right","up","undo"] also work. Never quote an entire JSON array.
         Batch safe travel together; use short batches near uncertain interactions.
         requested/executed count requested/processed commands, not successful movement.
         board_changed compares visible objects/rules/scene, not hidden engine state.
@@ -192,7 +202,10 @@ def create_server(service: GameService, profile: Literal["expert", "lite"] = "ex
 
     @server.tool(annotations=read_only)
     def list_levels(
-        world: str = "baba", query: str = "", limit: int = 30, offset: int = 0
+        world: str = "baba",
+        query: str = "",
+        limit: Annotated[int, Field(ge=1, le=100)] = 30,
+        offset: Annotated[int, Field(ge=0)] = 0,
     ) -> CallToolResult:
         """Search installed metadata by name/id; paginated to avoid dumping hundreds of levels."""
         if not 1 <= limit <= 100 or offset < 0:

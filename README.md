@@ -218,6 +218,10 @@ Missing numbering metadata is reported alongside the board, not instead of it.
 
 Read `get_board` once, then send a complete planned route in one `act` call. Compact notation:
 `U/D/L/R` move, `W` waits, `Z` undoes; optional counts repeat an action (`R8`, `U2`).
+Full names also work (`"right up undo"`, `"down"`, `"wait"`), as do actual JSON arrays
+(`{"actions":["right","up"]}`). Do not serialize the array into a string or mix full names
+with compact commands. Invalid input is rejected before any gameplay request; errors include
+concrete corrections. The published schema includes action and pagination limits.
 Each batch advances through native game frames, checks stop conditions after each move, and
 produces **one final snapshot** rather than reading/serializing the whole board after every move.
 Older installed bridges remain supported with a slower compatibility path until reinstalled.

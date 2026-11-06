@@ -5,7 +5,7 @@ import pytest
 from conftest import make_state
 
 from baba_is_agent.errors import GameActionError
-from baba_is_agent.service import GameService
+from baba_is_agent.service import GameService, parse_actions
 
 
 class FakeBridge:
@@ -19,7 +19,9 @@ class FakeBridge:
         yield self
 
 
-@pytest.mark.parametrize("actions", [[], ["quit"], ["left"] * 65])
+@pytest.mark.parametrize(
+    "actions", [[], ["quit"], ["left"] * 65, "select", "R65", "up " * 65, '["up"]', "up R2"]
+)
 def test_action_validation(settings, actions):
     bridge = FakeBridge()
     with pytest.raises(ValueError):
@@ -63,6 +65,26 @@ def test_batch_stops_on_game_event(settings, changes):
     assert result.executed == 1
     assert bridge.request.call_args == call("move", "right")
     assert bridge.entered == 1
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("down", ["down"]),
+        (" WAIT ", ["wait"]),
+        ("right, up undo", ["right", "up", "undo"]),
+        ("R2 U Z", ["right", "right", "up", "undo"]),
+    ],
+)
+def test_action_names_and_compact_notation(text, expected):
+    assert parse_actions(text) == expected
+
+
+def test_invalid_actions_give_a_concrete_correction_before_any_request(settings):
+    bridge = FakeBridge()
+    with pytest.raises(ValueError, match='actions="R4 U2 Z"'):
+        GameService(settings, bridge=bridge).act("select")
+    bridge.request.assert_not_called()
 
 
 def test_wait_and_undo_are_native_operations(settings):

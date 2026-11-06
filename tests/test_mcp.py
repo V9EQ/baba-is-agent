@@ -47,6 +47,13 @@ def test_stdio_handshake_tools_and_read_only_metadata(settings):
                 assert "[id,name,x,y,direction,properties]" in descriptions["act"]
                 assert "zero-based" in descriptions["get_board"]
                 assert "key='confirm'" in descriptions["press"]
+                schemas = {tool.name: tool.inputSchema for tool in tools}
+                action_options = schemas["act"]["properties"]["actions"]["anyOf"]
+                assert action_options[0]["minItems"] == 1
+                assert action_options[0]["maxItems"] == 64
+                assert action_options[1]["maxLength"] == 256
+                assert schemas["list_levels"]["properties"]["limit"]["maximum"] == 100
+                assert schemas["list_levels"]["properties"]["offset"]["minimum"] == 0
                 read_only = next(tool for tool in tools if tool.name == "get_state")
                 assert read_only.annotations is not None
                 assert read_only.annotations.readOnlyHint

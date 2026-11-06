@@ -5,6 +5,7 @@ import re
 import shutil
 import subprocess
 import time
+from typing import cast
 
 from baba_is_agent.config import STEAM_APP_ID, Settings
 from baba_is_agent.errors import BabaError, GameActionError
@@ -19,11 +20,19 @@ _KEYS = _ACTIONS | {"restart", "confirm", "escape", "space"}
 
 
 def parse_actions(actions: list[Action] | str) -> list[Action]:
-    """Accept explicit actions or compact runs such as 'R8 U2 L3 Z'."""
+    """Accept explicit actions, full names, or compact runs such as 'R8 U2 L3 Z'."""
+    if isinstance(actions, str):
+        names = re.split(r"[\s,]+", actions.strip().lower())
+        if all(name in _ACTIONS for name in names):
+            actions = [cast(Action, name) for name in names]
     if isinstance(actions, str):
         compact = re.sub(r"[\s,]+", "", actions.upper())
         if not re.fullmatch(r"(?:[UDLRWZ][0-9]*)+", compact) or len(compact) > 256:
-            raise ValueError("Use U/D/L/R/W(wait)/Z(undo), optionally followed by a repeat count")
+            raise ValueError(
+                'Invalid actions. Use actions="R4 U2 Z", actions="right up undo", '
+                'or actions=["right","up","undo"] (1..64 commands). '
+                'To enter a map level use enter_level(number=6) or press(key="confirm"), not select.'
+            )
         mapping: dict[str, Action] = {
             "U": "up",
             "D": "down",
@@ -36,11 +45,15 @@ def parse_actions(actions: list[Action] | str) -> list[Action]:
         for match in re.finditer(r"([UDLRWZ])([0-9]*)", compact):
             count = int(match[2] or "1")
             if count < 1 or len(expanded) + count > 64:
-                raise ValueError("Expected 1..64 total actions")
+                raise ValueError(
+                    'Expected 1..64 total actions, e.g. actions="R4 U2". Split longer routes; no commands were sent.'
+                )
             expanded.extend([mapping[match[1]]] * count)
         actions = expanded
     if not 1 <= len(actions) <= 64 or any(action not in _ACTIONS for action in actions):
-        raise ValueError("Expected 1..64 actions: up, down, left, right, wait, undo")
+        raise ValueError(
+            'Expected 1..64 actions: up, down, left, right, wait, undo; e.g. actions=["up","right"]. No commands were sent.'
+        )
     return actions
 
 
