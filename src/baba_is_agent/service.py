@@ -75,29 +75,6 @@ class GameService:
         with self.bridge.session() as session:
             return session.request()
 
-    def get_board(self) -> JsonObject:
-        """Group units by name and properties without losing their coordinates or IDs."""
-        state = self.get_state()
-        result = state.as_dict()
-        del result["units"]
-        groups: dict[tuple[str, tuple[str, ...], str, int], JsonObject] = {}
-        for unit in state.units:
-            key = (unit.name, tuple(unit.properties), unit.level, unit.completed)
-            if key not in groups:
-                group: JsonObject = {
-                    "name": unit.name,
-                    "properties": list(unit.properties),
-                    "positions": [],
-                }
-                if unit.level:
-                    group.update(level=unit.level, completed=unit.completed)
-                groups[key] = group
-            positions = groups[key]["positions"]
-            assert isinstance(positions, list)
-            positions.append([unit.x, unit.y, unit.dir, unit.id])
-        result["objects"] = list(groups.values())
-        return result
-
     def act(self, actions: list[Action] | str) -> ActionResult:
         """One engine-side batch when supported; fall back for an older installed mod."""
         actions = parse_actions(actions)

@@ -33,7 +33,7 @@ def create_server(service: GameService) -> FastMCP:
     def reply(
         state: GameState, *, full: bool = False, action: ActionResult | None = None
     ) -> CallToolResult:
-        full = full or output.previous is None or output.previous.level_key != state.level_key
+        full = full or output.needs_board(state)
         map_info: JsonObject | None = None
         if full and any("select" in u.properties for u in state.units):
             try:
@@ -43,7 +43,7 @@ def create_server(service: GameService) -> FastMCP:
                 }
             except (BabaError, OSError, ValueError, configparser.Error) as error:
                 map_info = {"error": str(error)}
-        return output.render(state, "board" if full else "delta", action=action, map_info=map_info)
+        return output.render(state, full=full, action=action, map_info=map_info)
 
     def play(actions: list[Action]) -> CallToolResult:
         with output.lock:
@@ -71,8 +71,10 @@ def create_server(service: GameService) -> FastMCP:
         Pass an actual array, not a string. Allowed: up/down/left/right/wait/undo.
         Batch safe planned routes, including turns; use short batches near uncertainty.
         wait advances time; use observe to read. executed is commands processed, not distance.
-        Replies contain only changes and current controller positions; unmentioned state
-        is unchanged. A scene change returns a full board. After control_lost use undo
+        kind=delta: changed lists only changed units, grouped like observe().objects;
+        at=[x,y,direction,id], removed lists deleted IDs. Unmentioned state is unchanged.
+        effects highlights transformations/property changes since the previous reply.
+        Current controller positions are always included. Scene changes return kind=board. After control_lost use undo
         or restart. Never blindly repeat a timed-out action: observe first.
         """
         return play(actions)

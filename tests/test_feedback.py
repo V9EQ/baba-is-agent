@@ -42,11 +42,11 @@ def test_control_context(changes, phase, controller):
 def test_unchanged_deltas_keep_control_positions_and_recovery():
     presenter = Presenter()
     alive = make_state(units=[PLAYER])
-    presenter.render(alive, "board")
-    assert decode(presenter.render(alive, "delta"))["controlled"][0]["x"] == 2
+    presenter.render(alive, full=True)
+    assert decode(presenter.render(alive))["controlled"][0]["x"] == 2
     dead = make_state(no_player=1, undo_depth=1)
-    presenter.render(dead, "delta")
-    repeated = decode(presenter.render(dead, "delta"))
+    presenter.render(dead)
+    repeated = decode(presenter.render(dead))
     assert repeated["no_player"] == 1
     assert repeated["controlled"] == []
     assert repeated["can_undo"]
@@ -81,12 +81,13 @@ def test_board_change_ignores_transport_counters_and_unit_order():
 
 
 @pytest.mark.parametrize("native", [False, True])
-def test_action_metadata_reaches_every_view(settings, native):
+def test_action_metadata_reaches_board_and_delta(settings, native):
     initial = make_state(units=[PLAYER], capabilities=["batch"] if native else [])
     dead = make_state(no_player=1, executed=1, undo_depth=1)
     result = GameService(settings, bridge=FakeBridge(initial, dead)).act("R6")
-    for view in ["delta", "summary", "board", "full"]:
-        reply = decode(Presenter().render(result.state, view, action=result))
+    presenter = Presenter()
+    for full in [True, False]:
+        reply = decode(presenter.render(result.state, full=full, action=result))
         assert reply["requested"] == 6
         assert reply["executed"] == 1
         assert reply["stop_reason"] == "control_lost"

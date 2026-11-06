@@ -43,7 +43,7 @@ def test_stdio_handshake_tools_and_read_only_metadata(settings):
                     assert isinstance(tool.description, str)
                     descriptions[tool.name] = tool.description
                 assert "1..64" in descriptions["act"]
-                assert "unmentioned state" in descriptions["act"]
+                assert "unmentioned state" in descriptions["act"].lower()
                 assert "zero-based" in descriptions["observe"]
                 assert "confirm" in descriptions["press"]
                 schemas = {tool.name: tool.inputSchema for tool in tools}

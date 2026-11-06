@@ -18,7 +18,7 @@ def test_no_direction_commands_sent_without_ordinary_control(settings, native, m
     assert result.executed == 0
     assert result.stop_reason == "control_lost"
     assert not result.board_changed
-    reply = decode(Presenter().render(result.state, "delta", action=result))
+    reply = decode(Presenter().render(result.state, action=result))
     assert "undo()" in reply["recovery_hint"]
 
 

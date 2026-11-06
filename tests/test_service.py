@@ -5,6 +5,7 @@ import pytest
 from conftest import make_state
 
 from baba_is_agent.errors import GameActionError
+from baba_is_agent.presentation import compact_board
 from baba_is_agent.service import GameService, parse_actions
 
 
@@ -106,10 +107,10 @@ def test_compact_board_preserves_units_without_mutation(settings):
     }
     state = make_state(units=[unit, dict(unit, id=2, x=4)])
     service = GameService(settings, bridge=FakeBridge(state))
-    compact = service.get_board()
+    compact = compact_board(service.get_state())
     assert "units" not in compact
     assert compact["objects"] == [
-        {"name": "wall", "properties": ["stop"], "positions": [[2, 3, 0, 1], [4, 3, 0, 2]]}
+        {"name": "wall", "properties": ["stop"], "at": [[2, 3, 0, 1], [4, 3, 0, 2]]}
     ]
     assert len(state.units) == 2
 

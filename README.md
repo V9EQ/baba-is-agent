@@ -219,9 +219,14 @@ Each batch advances through native game frames, checks stop conditions after eac
 produces **one final snapshot** rather than reading/serializing the whole board after every move.
 Older installed bridges remain supported with a slower compatibility path until reinstalled.
 
-Action and menu tools return deltas by default: changed units/rules/buttons only. Delta units
-are `[id, name, x, y, direction, properties]`; `removed` lists deleted IDs. Unmentioned state is
-unchanged. Scene changes return the new board automatically. Do not request
+Replies have `kind="board"` or `kind="delta"`. Boards contain `objects`, grouped by name and
+current properties, with `at=[x,y,direction,id]`. Deltas use exactly the same grouping and
+coordinate order in `changed`, but contain only changed units, not whole groups. `removed`
+lists deleted IDs; unmentioned state is unchanged. `effects` highlights name/property changes
+since the previous reply. Changed rules and menu buttons are returned in full.
+There is no duplicate grid or repeated static object list after each action. All objects,
+including inert ones and stacks, directions, and rule conditions remain in full observations.
+Scene changes return the new board automatically. Do not request
 full state after every move. Replies use one minified JSON text block, without a duplicate
 `structuredContent` payload; the example client decodes it.
 
