@@ -13,7 +13,7 @@ from baba_is_agent.server import create_server
 def test_lite_tools_have_small_unambiguous_schemas():
     tools = asyncio.run(create_server(Mock(), profile="lite").list_tools())
     schemas = {t.name: t.inputSchema for t in tools}
-    assert set(schemas) == {"observe", "move", "undo", "restart", "press"}
+    assert set(schemas) == {"observe", "move", "undo", "restart", "press", "enter_level"}
     assert not schemas["observe"].get("properties")
     assert schemas["move"]["properties"]["direction"]["enum"] == [
         "up",

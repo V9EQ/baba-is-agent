@@ -36,6 +36,7 @@ def test_stdio_handshake_tools_and_read_only_metadata(settings):
                     "restart_level",
                     "list_levels",
                     "launch_game",
+                    "enter_level",
                 }
                 descriptions: dict[str, str] = {}
                 for tool in tools:

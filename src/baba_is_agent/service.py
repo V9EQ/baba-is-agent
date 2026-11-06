@@ -11,6 +11,7 @@ from baba_is_agent.errors import BabaError, GameActionError
 from baba_is_agent.feedback import action_result, ordinary_control_lost
 from baba_is_agent.input import Keyboard, LinuxKeyboard
 from baba_is_agent.models import Action, ActionResult, GameState, JsonObject, Key
+from baba_is_agent.navigation import cursor_position, map_levels, map_route
 from baba_is_agent.transport import BridgeClient, BridgeGateway
 
 _ACTIONS = frozenset({"up", "down", "left", "right", "wait", "undo"})
@@ -212,6 +213,54 @@ class GameService:
                     }
                 )
         return result
+
+    def enter_level(self, number: int) -> GameState:
+        """Walk an accessible numbered map route and confirm; never load or unlock directly."""
+        with self.bridge.session() as session:
+            state = session.request()
+            cursor_position(state)
+            matches = [
+                entry
+                for entry in map_levels(self.settings, state)
+                if entry.number == number and entry.style == 0
+            ]
+            if len(matches) != 1 or not matches[0].available:
+                raise GameActionError(
+                    "Numbered level unavailable or ambiguous on this map; inspect the board."
+                )
+            target = matches[0]
+            origin = state.level_key
+            route = map_route(state, target)
+            if route and "batch" in state.capabilities:
+                state = session.request("batch", actions=list(route))
+            else:
+                for action in route:
+                    state = session.request("move", action)
+                    if state.level_key != origin or not state.ready:
+                        raise GameActionError(
+                            "Map changed during travel; inspect before retrying."
+                        )
+            if state.level_key != origin or cursor_position(state) != (target.x, target.y):
+                raise GameActionError(
+                    "Cursor did not reach the target; no confirm sent. Inspect the board."
+                )
+            self.keyboard.press("confirm")
+            deadline = time.monotonic() + self.settings.request_timeout
+            dismissed_intro = False
+            while time.monotonic() < deadline:
+                state = session.request()
+                if state.level_key not in {origin, (origin[0], target.level)}:
+                    raise GameActionError("Unexpected level transition; inspect before retrying.")
+                if state.level_key == (origin[0], target.level):
+                    if state.menu == "levelintro" and not dismissed_intro:
+                        self.keyboard.press("confirm")
+                        dismissed_intro = True
+                    elif state.ready and not any("select" in u.properties for u in state.units):
+                        return state
+                time.sleep(self.settings.poll_interval)
+        raise GameActionError(
+            "Level entry not settled; inspect the board. Do not blindly retry confirm."
+        )
 
     def launch_game(self) -> JsonObject:
         steam = shutil.which("steam")

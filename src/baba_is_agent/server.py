@@ -1,12 +1,16 @@
 """MCP tools with compact single-copy results and server-side move batches."""
 
+import configparser
+from dataclasses import asdict
 from typing import Annotated, Literal
 
 from mcp.server.fastmcp import FastMCP
 from mcp.types import CallToolResult, ToolAnnotations
 from pydantic import Field
 
-from baba_is_agent.models import Action, Key
+from baba_is_agent.errors import BabaError
+from baba_is_agent.models import Action, ActionResult, GameState, JsonObject, Key
+from baba_is_agent.navigation import map_levels
 from baba_is_agent.presentation import Presenter, View, text_result
 from baba_is_agent.service import GameService
 
@@ -24,7 +28,7 @@ Steam saves. Never blindly retry after timeout. Do not switch desktop focus duri
 """
 
 
-LITE_INSTRUCTIONS = """Play Baba Is You with observe, move, undo, restart, and press.
+LITE_INSTRUCTIONS = """Play Baba Is You with observe, move, undo, restart, press, and enter_level.
 Start with observe(). It reads without advancing time; never wait just to inspect.
 Move safe straight sections together with steps. Check actual properties after rule changes:
 OPEN is not PUSH. If a result contradicts your plan, reconsider the plan rather than repeat it.
@@ -41,12 +45,35 @@ def create_server(service: GameService, profile: Literal["expert", "lite"] = "ex
     read_only = ToolAnnotations(readOnlyHint=True, openWorldHint=False)
     interactive = ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=False)
 
+    def board_reply(state: GameState, action: ActionResult | None = None) -> CallToolResult:
+        map_info: JsonObject | None = None
+        if any("select" in u.properties for u in state.units):
+            try:
+                map_info = {
+                    "levels": [asdict(entry) for entry in map_levels(service.settings, state)],
+                    "styles": "0=numbered, 1=letter/extra, 2=map",
+                }
+            except (BabaError, OSError, ValueError, configparser.Error) as error:
+                map_info = {"error": str(error)}
+        return output.render(state, "board", action=action, map_info=map_info)
+
+    @server.tool(annotations=interactive)
+    def enter_level(number: Annotated[int, Field(ge=0)]) -> CallToolResult:
+        """Enter a regular numbered level on the current map, e.g. number=6 for 06.
+
+        Read get_board (expert) or observe (lite) for map.levels and availability.
+        Walks the native cursor and confirms the target, dismissing its introduction.
+        Never unlocks or directly loads levels. If entry fails, inspect before retrying.
+        """
+        with output.lock:
+            return board_reply(service.enter_level(number))
+
     if profile == "lite":
 
         def play(actions: list[Action]) -> CallToolResult:
             with output.lock:
                 result = service.act(actions)
-                return output.render(result.state, "board", action=result)
+                return board_reply(result.state, result)
 
         @server.tool(annotations=read_only)
         def observe() -> CallToolResult:
@@ -59,7 +86,7 @@ def create_server(service: GameService, profile: Literal["expert", "lite"] = "ex
             and property changes, not a proposed solution. Rule conditions still apply.
             """
             with output.lock:
-                return output.render(service.get_state(), "board")
+                return board_reply(service.get_state())
 
         @server.tool(annotations=interactive)
         def move(
@@ -83,7 +110,7 @@ def create_server(service: GameService, profile: Literal["expert", "lite"] = "ex
         def restart() -> CallToolResult:
             """Discard the current puzzle attempt and return its initial board."""
             with output.lock:
-                return output.render(service.restart_level(), "board")
+                return board_reply(service.restart_level())
 
         @server.tool(annotations=interactive)
         def press(key: Key) -> CallToolResult:
@@ -93,7 +120,7 @@ def create_server(service: GameService, profile: Literal["expert", "lite"] = "ex
             For ordinary puzzle movement use move; to read without acting use observe.
             """
             with output.lock:
-                return output.render(service.press(key), "board")
+                return board_reply(service.press(key))
 
         return server
 
@@ -110,10 +137,11 @@ def create_server(service: GameService, profile: Literal["expert", "lite"] = "ex
         Coordinates are zero-based, x rightward and y downward. Object at entries
         are [x,y,direction,id]; directions right=0,up=1,left=2,down=3,idle=4.
         Rules include conditions: do not infer mechanics from object names alone.
-        On a map, move the select cursor with act, then press(key='confirm').
+        On maps, map.levels connects displayed numbers to files and availability.
+        Use enter_level(number=6), or move the cursor with act then press(key='confirm').
         """
         with output.lock:
-            return output.render(service.get_state(), "board")
+            return board_reply(service.get_state())
 
     @server.tool(annotations=interactive)
     def act(actions: list[Action] | str, view: View = "delta") -> CallToolResult:

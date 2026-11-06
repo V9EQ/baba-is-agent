@@ -94,6 +94,7 @@ class Presenter:
         *,
         executed: int | None = None,
         action: ActionResult | None = None,
+        map_info: JsonObject | None = None,
     ) -> CallToolResult:
         if view == "full":
             data = state.as_dict()
@@ -121,6 +122,8 @@ class Presenter:
         else:
             data = self._delta(state)
         data.update(control_context(state))
+        if map_info is not None:
+            data["map"] = map_info
         if executed is not None:
             data["executed"] = executed
         if action is not None:

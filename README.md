@@ -174,6 +174,7 @@ permissions work; use `uv run baba-mcp doctor --live` to diagnose those separate
 | --- | --- |
 | `get_board()` | Compact, exact board grouped by object name and effective properties. |
 | `get_state(view="summary")` | Small status by default; `view="full"` requests all internal state. |
+| `enter_level(number)` | Enter an accessible regular numbered level on the current map using native cursor travel and confirmation. |
 | `act(actions, view="delta")` | One engine-side batch: `"R8 U2 Z"` or a list of 1–64 actions. Only final changes are returned. |
 | `press(key)` | Native keyboard input for menus, intros, and realtime/AUTO levels. |
 | `choose_menu(name)` | Navigate to an enabled button reported in `state.buttons`. |
@@ -196,7 +197,7 @@ For smaller models, start the server with `baba-mcp --profile lite serve` or set
 The default `expert` profile preserves the existing API.
 
 Lite exposes only `observe()`, `move(direction, steps=1)`, `undo(steps=1)`, `restart()`,
-and `press(key)`. There is no `view` parameter or compact command language to learn.
+`press(key)`, and `enter_level(number)`. There is no `view` parameter or compact command language to learn.
 Each action returns a self-contained grid and objects with named positions (`x`, `y`,
 `direction`, `id`); `observe()` reads without advancing time. Grid cells are space-separated:
 uppercase words, lowercase objects, `+` for stacks, `.` for empty. Inert objects and rule
@@ -204,6 +205,14 @@ conditions are preserved. `changes_since_previous_reply` highlights transformati
 property changes; for example, a key with OPEN but not PUSH is not implicitly pushable.
 For example: `move(direction="right", steps=4)`. Keep unrelated MCP servers out of the
 client's gaming tool set; the server cannot hide another server's tools.
+
+On a map, `observe()` (lite) and `get_board()` (expert) also include `map.levels`:
+local number, style, name, file, coordinates, and availability from live completion state.
+`enter_level(number=6)` enters regular level 06 on that map. It plans at most 64 cursor
+moves over native accessible cells, checks the actual destination before confirming,
+and dismisses the level introduction once. It never loads a file directly or unlocks a level.
+Letter/extra levels and unusual map mechanics still require manual cursor movement.
+Missing numbering metadata is reported alongside the board, not instead of it.
 
 ### Efficient agent use
 
