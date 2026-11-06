@@ -24,18 +24,23 @@ def text_result(data: object) -> CallToolResult:
     )
 
 
-def compact_board(state: GameState) -> JsonObject:
+def compact_board(state: GameState, *, named_positions: bool = False) -> JsonObject:
+    position_key = "positions" if named_positions else "at"
     groups: dict[tuple[str, tuple[str, ...], str, int], JsonObject] = {}
     for unit in state.units:
         key = (unit.name, tuple(unit.properties), unit.level, unit.completed)
         group = groups.setdefault(
-            key, {"name": unit.name, "properties": list(unit.properties), "at": []}
+            key, {"name": unit.name, "properties": list(unit.properties), position_key: []}
         )
         if unit.level:
             group.update(level=unit.level, completed=unit.completed)
-        positions = group["at"]
+        positions = group[position_key]
         assert isinstance(positions, list)
-        positions.append([unit.x, unit.y, unit.dir, unit.id])
+        positions.append(
+            {"x": unit.x, "y": unit.y, "direction": unit.dir, "id": unit.id}
+            if named_positions
+            else [unit.x, unit.y, unit.dir, unit.id]
+        )
     result = {key: getattr(state, key) for key in _STATUS}
     result.update(control_context(state))
     result["legend"] = {
@@ -52,10 +57,32 @@ def compact_board(state: GameState) -> JsonObject:
     return result
 
 
+def spatial_board(state: GameState) -> JsonObject:
+    """A self-contained textual grid plus named positions; never hide inert objects."""
+    board = compact_board(state, named_positions=True)
+    width, height = getattr(state, "width", 0), getattr(state, "height", 0)
+    cells: dict[tuple[int, int], list[str]] = {}
+    for unit in state.units:
+        label = unit.name[5:].upper() if unit.name.startswith("text_") else unit.name
+        cells.setdefault((unit.x, unit.y), []).append(label)
+    board["grid"] = [
+        f"{y:02d} | " + " ".join("+".join(cells.get((x, y), [])) or "." for x in range(width))
+        for y in range(height)
+    ]
+    board["columns"] = list(range(width))
+    board["legend"] = {
+        "coordinates": "zero-based; x rightward, y downward; row starts with y",
+        "grid": "Space-separated cells; uppercase=word tile, lowercase=object, +=stack, .=empty",
+        "directions": {"right": 0, "up": 1, "left": 2, "down": 3, "idle": 4},
+    }
+    return board
+
+
 class Presenter:
     """Baseline belongs to the current MCP process; first deltas request a board refresh."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, spatial: bool = False) -> None:
+        self.spatial = spatial
         self.lock = Lock()
         self.previous: GameState | None = None
         self.has_board = False
@@ -71,7 +98,24 @@ class Presenter:
         if view == "full":
             data = state.as_dict()
         elif view == "board":
-            data = compact_board(state)
+            data = spatial_board(state) if self.spatial else compact_board(state)
+            if self.spatial and self.previous and self.previous.level_key == state.level_key:
+                old = {u.id: u for u in self.previous.units}
+                changes: list[JsonValue] = [
+                    {
+                        "id": u.id,
+                        "before": {
+                            "name": old[u.id].name,
+                            "properties": list(old[u.id].properties),
+                        },
+                        "after": {"name": u.name, "properties": list(u.properties)},
+                    }
+                    for u in state.units
+                    if u.id in old
+                    and (u.name != old[u.id].name or u.properties != old[u.id].properties)
+                ]
+                if changes:
+                    data["changes_since_previous_reply"] = changes
         elif view == "summary":
             data = {key: getattr(state, key) for key in _STATUS}
         else:

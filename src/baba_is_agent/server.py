@@ -37,7 +37,7 @@ def create_server(service: GameService, profile: Literal["expert", "lite"] = "ex
     if profile not in {"expert", "lite"}:
         raise ValueError("Expected MCP profile: expert or lite")
     server = FastMCP("baba", instructions=LITE_INSTRUCTIONS if profile == "lite" else INSTRUCTIONS)
-    output = Presenter()
+    output = Presenter(spatial=profile == "lite")
     read_only = ToolAnnotations(readOnlyHint=True, openWorldHint=False)
     interactive = ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=False)
 
@@ -53,7 +53,10 @@ def create_server(service: GameService, profile: Literal["expert", "lite"] = "ex
             """Read the current board, rules, controller, and menu without advancing time.
 
             Start here. Use this to inspect a result, not move(direction='wait').
-            Object properties describe current effects: OPEN does not imply PUSH.
+            Grid cells are space-separated: uppercase words, lowercase objects, + stacks.
+            Positions have named x/y fields. properties describe actual checked effects;
+            OPEN does not imply PUSH. changes_since_previous_reply flags transformations
+            and property changes, not a proposed solution. Rule conditions still apply.
             """
             with output.lock:
                 return output.render(service.get_state(), "board")

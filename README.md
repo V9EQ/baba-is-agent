@@ -197,7 +197,11 @@ The default `expert` profile preserves the existing API.
 
 Lite exposes only `observe()`, `move(direction, steps=1)`, `undo(steps=1)`, `restart()`,
 and `press(key)`. There is no `view` parameter or compact command language to learn.
-Each action returns the current board; `observe()` reads without advancing time.
+Each action returns a self-contained grid and objects with named positions (`x`, `y`,
+`direction`, `id`); `observe()` reads without advancing time. Grid cells are space-separated:
+uppercase words, lowercase objects, `+` for stacks, `.` for empty. Inert objects and rule
+conditions are preserved. `changes_since_previous_reply` highlights transformations and
+property changes; for example, a key with OPEN but not PUSH is not implicitly pushable.
 For example: `move(direction="right", steps=4)`. Keep unrelated MCP servers out of the
 client's gaming tool set; the server cannot hide another server's tools.
 
