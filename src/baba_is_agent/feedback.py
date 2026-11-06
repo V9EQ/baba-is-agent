@@ -43,7 +43,7 @@ def control_context(state: GameState) -> JsonObject:
         "can_undo": state.undo_depth > 0,
     }
     if state.won:
-        data["recovery_hint"] = "Victory reported; read get_board if the scene changed."
+        data["recovery_hint"] = "Victory reported; observe() reads the current scene."
     elif phase == "intro":
         data["recovery_hint"] = "press(key='confirm') dismisses the introduction."
     elif phase == "menu":
@@ -53,7 +53,7 @@ def control_context(state: GameState) -> JsonObject:
     elif phase == "auto":
         data["recovery_hint"] = "AUTO requires realtime input with press."
     elif controller == "none" and state.no_player:
-        data["recovery_hint"] = "No ordinary control: try act(actions='Z') or restart_level."
+        data["recovery_hint"] = "No ordinary control: use undo() or restart()."
     return data
 
 

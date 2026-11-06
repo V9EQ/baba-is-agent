@@ -104,7 +104,9 @@ class GameService:
         with self.bridge.session() as session:
             initial = session.request()
             if not initial.ready:
-                raise GameActionError("Not ready for gameplay. Inspect state or use menu input.")
+                raise GameActionError(
+                    "Not ready for gameplay. Call observe(); use press/choose_menu for menus or intros."
+                )
             if actions[0] != "undo" and ordinary_control_lost(initial):
                 return ActionResult(
                     state=initial,
@@ -180,7 +182,9 @@ class GameService:
             menu = state.menu
             button = next((b for b in state.buttons if b.name == name and not b.disabled), None)
             if button is None:
-                raise GameActionError("Enabled button not found. Inspect get_state().buttons.")
+                raise GameActionError(
+                    "Enabled button not found. Read observe().buttons and use its exact button name."
+                )
             for _ in range(32):
                 if state.menu != menu:
                     raise GameActionError(
@@ -285,7 +289,7 @@ class GameService:
             stderr=subprocess.DEVNULL,
             start_new_session=True,
         )
-        return {"launched": True, "note": "Wait for startup, then inspect get_state()."}
+        return {"launched": True, "note": "Wait for startup, then call observe()."}
 
     def close(self) -> None:
         self.keyboard.close()

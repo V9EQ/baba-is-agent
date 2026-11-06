@@ -19,7 +19,7 @@ def test_no_direction_commands_sent_without_ordinary_control(settings, native, m
     assert result.stop_reason == "control_lost"
     assert not result.board_changed
     reply = decode(Presenter().render(result.state, "delta", action=result))
-    assert "actions='Z'" in reply["recovery_hint"]
+    assert "undo()" in reply["recovery_hint"]
 
 
 @pytest.mark.parametrize("native", [False, True])

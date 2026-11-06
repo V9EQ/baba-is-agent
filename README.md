@@ -33,7 +33,7 @@ Restart the game after installing or upgrading the bridge. Then:
 
 ```bash
 uv run baba-mcp doctor --live
-uv run python examples/client.py get_board
+uv run python examples/client.py observe
 ```
 
 The installer adds only our mod at `Data/Lua/zz_baba_mcp.lua` and creates a private transport
@@ -163,8 +163,8 @@ See the [Claude Code MCP documentation](https://code.claude.com/docs/en/mcp).
 
 ### Verify the connection
 
-With the game running and the bridge installed, ask the agent to call `baba.get_board` (the
-client may display a prefix such as `mcp__baba__get_board`). It should return the current board
+With the game running and the bridge installed, ask the agent to call `baba.observe` (the
+client may display a prefix such as `mcp__baba__observe`). It should return the current board
 and rules. A successful MCP connection alone does not prove the game bridge or menu input
 permissions work; use `uv run baba-mcp doctor --live` to diagnose those separately.
 
@@ -172,41 +172,36 @@ permissions work; use `uv run baba-mcp doctor --live` to diagnose those separate
 
 | Tool | Purpose |
 | --- | --- |
-| `get_board()` | Compact, exact board grouped by object name and effective properties. |
-| `get_state(view="summary")` | Small status by default; `view="full"` requests all internal state. |
+| `observe()` | Read the full exact board, effective properties, rules, controller and menu without advancing time. |
 | `enter_level(number)` | Enter an accessible regular numbered level on the current map using native cursor travel and confirmation. |
-| `act(actions, view="delta")` | One engine-side batch: `"R8 U2 Z"` or a list of 1–64 actions. Only final changes are returned. |
+| `act(actions)` | One engine-side batch of 1–64 action names, including multi-turn routes. Returns changes. |
+| `undo(steps=1)` | Undo 1–64 turns; returns changes. |
 | `press(key)` | Native keyboard input for menus, intros, and realtime/AUTO levels. |
 | `choose_menu(name)` | Navigate to an enabled button reported in `state.buttons`. |
-| `restart_level()` | Restart an unpaused level, discarding its current puzzle progress. |
+| `restart()` | Discard the current puzzle attempt and return its initial board. |
 | `list_levels(world="baba", query="", limit=30, offset=0)` | Search/paginate installed metadata; never unlock or load levels. |
 | `launch_game()` | Ask Steam to launch the game; does not restart an existing instance. |
 
 Example calls:
 
 ```bash
-uv run python examples/client.py get_board
-uv run python examples/client.py act '{"actions": "R8 U2 Z"}'
+uv run python examples/client.py observe
+uv run python examples/client.py act '{"actions": ["right", "right", "up"]}'
 uv run python examples/client.py choose_menu '{"name": "resume"}'
 ```
 
-### Simplified tool profile
+### One interface
 
-For smaller models, start the server with `baba-mcp --profile lite serve` or set
-`BABA_MCP_PROFILE=lite` in the MCP server environment. Reconnect the client after switching.
-The default `expert` profile preserves the existing API.
+There are no profiles or `view` parameters. `act` takes an actual array of action names,
+not a quoted JSON array or compact string. A single action works as well as a route with turns.
+`observe()` reads the whole board; actions return short changes. The first reply and scene
+transitions establish a full board automatically; `restart()` also returns a full board.
 
-Lite exposes only `observe()`, `move(direction, steps=1)`, `undo(steps=1)`, `restart()`,
-`press(key)`, and `enter_level(number)`. There is no `view` parameter or compact command language to learn.
-Each action returns a self-contained grid and objects with named positions (`x`, `y`,
-`direction`, `id`); `observe()` reads without advancing time. Grid cells are space-separated:
-uppercase words, lowercase objects, `+` for stacks, `.` for empty. Inert objects and rule
-conditions are preserved. `changes_since_previous_reply` highlights transformations and
-property changes; for example, a key with OPEN but not PUSH is not implicitly pushable.
-For example: `move(direction="right", steps=4)`. Keep unrelated MCP servers out of the
-client's gaming tool set; the server cannot hide another server's tools.
+Migration: use `observe` instead of `get_state/get_board`, `act` instead of `move`, and
+`restart` instead of `restart_level`. Remove `--profile` from launch arguments;
+the old `BABA_MCP_PROFILE` environment variable is ignored. Reconnect the MCP client.
 
-On a map, `observe()` (lite) and `get_board()` (expert) also include `map.levels`:
+On a map, `observe()` also includes `map.levels`:
 local number, style, name, file, coordinates, and availability from live completion state.
 `enter_level(number=6)` enters regular level 06 on that map. It plans at most 64 cursor
 moves over native accessible cells, checks the actual destination before confirming,
@@ -216,20 +211,17 @@ Missing numbering metadata is reported alongside the board, not instead of it.
 
 ### Efficient agent use
 
-Read `get_board` once, then send a complete planned route in one `act` call. Compact notation:
-`U/D/L/R` move, `W` waits, `Z` undoes; optional counts repeat an action (`R8`, `U2`).
-Full names also work (`"right up undo"`, `"down"`, `"wait"`), as do actual JSON arrays
-(`{"actions":["right","up"]}`). Do not serialize the array into a string or mix full names
-with compact commands. Invalid input is rejected before any gameplay request; errors include
-concrete corrections. The published schema includes action and pagination limits.
+Read `observe` once, then send a planned route such as `{"actions":["right","right","up"]}`.
+Allowed actions: `up`, `down`, `left`, `right`, `wait`, `undo`. Batch safe travel together;
+use short batches near uncertainty. Read with `observe`, not a wait turn.
+Invalid input is rejected before gameplay; the published schema includes action and pagination limits.
 Each batch advances through native game frames, checks stop conditions after each move, and
 produces **one final snapshot** rather than reading/serializing the whole board after every move.
 Older installed bridges remain supported with a slower compatibility path until reinstalled.
 
 Action and menu tools return deltas by default: changed units/rules/buttons only. Delta units
 are `[id, name, x, y, direction, properties]`; `removed` lists deleted IDs. Unmentioned state is
-unchanged. A `refresh: "get_board"` reply means the agent needs to read the new scene.
-`view="summary"`, `view="board"`, and `view="full"` are explicit alternatives. Do not request
+unchanged. Scene changes return the new board automatically. Do not request
 full state after every move. Replies use one minified JSON text block, without a duplicate
 `structuredContent` payload; the example client decodes it.
 
@@ -239,7 +231,7 @@ the MCP client so it sees the new tools and defaults.
 ### State and action semantics
 
 - Coordinates start at zero. Directions: **right = 0, up = 1, left = 2, down = 3**.
-- `get_board().objects[*].at` contains `[x, y, direction, unit_id]` entries. Boards include
+- `observe().objects[*].at` contains `[x, y, direction, unit_id]` entries. Boards include
   a format legend; essential instructions are also in tool descriptions, not just server instructions.
 - Every reply includes `phase`, `ready`, `controller`, current `controlled` positions,
   `no_player`, `can_undo`, and a `recovery_hint` when appropriate. These fields are snapshots,
@@ -252,7 +244,7 @@ the MCP client so it sees the new tools and defaults.
 - If the engine reports no player and there is no ordinary controller, `act` does not send
   directions/waits: it returns `executed=0` and recovery guidance. Map cursors, parsed
   LEVEL/EMPTY IS YOU rules, and AUTO are exempt. This guard is not a universal death detector.
-  Start a recovery sequence with `Z`, or call `restart_level`. A leading undo run is verified
+  Use `undo()` or call `restart()`. A leading undo run is verified
   before subsequent directions; native recovery-plus-travel may use two engine batches.
 - `rules` contains parsed word triples and their conditions. Do not treat every parsed rule
   as unconditional. `properties` reports common checked effects, not every property in the game.

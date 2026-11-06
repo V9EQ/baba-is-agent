@@ -154,12 +154,12 @@ def test_puzzle_or_multiple_cursors_refused():
 def test_observe_includes_map_numbers_and_survives_missing_metadata(settings, map_state):
     async def exercise():
         service = GameService(settings, bridge=FakeBridge(map_state, map_state))
-        server = create_server(service, profile="lite")
+        server = create_server(service)
         result = await server.call_tool("observe", {})
         assert "100% Baba" in str(result) and "number" in str(result)
         (settings.game_dir / "Data/Worlds/baba/map.ld").unlink()
         result = await server.call_tool("observe", {})
         assert "numbering metadata unavailable" in str(result)
-        assert "grid" in str(result)
+        assert "objects" in str(result)
 
     asyncio.run(exercise())

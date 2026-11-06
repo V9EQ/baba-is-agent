@@ -1,7 +1,7 @@
 """Call the real stdio MCP from the terminal, preserving the desktop environment.
 
 Examples:
-    uv run python examples/client.py get_board
+    uv run python examples/client.py observe
     uv run python examples/client.py act '{"actions": ["right", "undo"]}'
 """
 
@@ -41,7 +41,7 @@ async def run(tool: str, arguments: dict[str, object]) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("tool", nargs="?", default="get_board")
+    parser.add_argument("tool", nargs="?", default="observe")
     parser.add_argument("arguments", nargs="?", default="{}", help="JSON object of tool arguments")
     args = parser.parse_args()
     try:

@@ -42,6 +42,7 @@ def compact_board(state: GameState, *, named_positions: bool = False) -> JsonObj
             else [unit.x, unit.y, unit.dir, unit.id]
         )
     result = {key: getattr(state, key) for key in _STATUS}
+    result["frame"] = state.frame
     result.update(control_context(state))
     result["legend"] = {
         "coordinates": "zero-based; x rightward, y downward",

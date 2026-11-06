@@ -50,7 +50,7 @@ def test_unchanged_deltas_keep_control_positions_and_recovery():
     assert repeated["no_player"] == 1
     assert repeated["controlled"] == []
     assert repeated["can_undo"]
-    assert "actions='Z'" in repeated["recovery_hint"]
+    assert "undo()" in repeated["recovery_hint"]
 
 
 @pytest.mark.parametrize(
