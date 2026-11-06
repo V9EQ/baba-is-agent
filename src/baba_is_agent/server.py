@@ -1,7 +1,10 @@
 """MCP tools with compact single-copy results and server-side move batches."""
 
+from typing import Annotated, Literal
+
 from mcp.server.fastmcp import FastMCP
 from mcp.types import CallToolResult, ToolAnnotations
+from pydantic import Field
 
 from baba_is_agent.models import Action, Key
 from baba_is_agent.presentation import Presenter, View, text_result
@@ -21,11 +24,75 @@ Steam saves. Never blindly retry after timeout. Do not switch desktop focus duri
 """
 
 
-def create_server(service: GameService) -> FastMCP:
-    server = FastMCP("baba", instructions=INSTRUCTIONS)
+LITE_INSTRUCTIONS = """Play Baba Is You with observe, move, undo, restart, and press.
+Start with observe(). It reads without advancing time; never wait just to inspect.
+Move safe straight sections together with steps. Check actual properties after rule changes:
+OPEN is not PUSH. If a result contradicts your plan, reconsider the plan rather than repeat it.
+Use press for menus/intros/AUTO. Actions can update Steam saves. Never retry after timeout
+without observing first. Do not change desktop focus during menu input.
+"""
+
+
+def create_server(service: GameService, profile: Literal["expert", "lite"] = "expert") -> FastMCP:
+    if profile not in {"expert", "lite"}:
+        raise ValueError("Expected MCP profile: expert or lite")
+    server = FastMCP("baba", instructions=LITE_INSTRUCTIONS if profile == "lite" else INSTRUCTIONS)
     output = Presenter()
     read_only = ToolAnnotations(readOnlyHint=True, openWorldHint=False)
     interactive = ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=False)
+
+    if profile == "lite":
+
+        def play(actions: list[Action]) -> CallToolResult:
+            with output.lock:
+                result = service.act(actions)
+                return output.render(result.state, "board", action=result)
+
+        @server.tool(annotations=read_only)
+        def observe() -> CallToolResult:
+            """Read the current board, rules, controller, and menu without advancing time.
+
+            Start here. Use this to inspect a result, not move(direction='wait').
+            Object properties describe current effects: OPEN does not imply PUSH.
+            """
+            with output.lock:
+                return output.render(service.get_state(), "board")
+
+        @server.tool(annotations=interactive)
+        def move(
+            direction: Literal["up", "down", "left", "right", "wait"],
+            steps: Annotated[int, Field(ge=1, le=64)] = 1,
+        ) -> CallToolResult:
+            """Move in one direction for 1..64 turns, returning the resulting board.
+
+            Example: {"direction":"right","steps":4}. Combine safe straight travel;
+            use short runs near uncertain pushes. 'wait' advances time, not inspection.
+            executed counts processed commands, not distance. Use undo after control_lost.
+            """
+            return play([direction] * steps)
+
+        @server.tool(annotations=interactive)
+        def undo(steps: Annotated[int, Field(ge=1, le=64)] = 1) -> CallToolResult:
+            """Undo 1..64 turns and return the board. Use to recover from a bad move."""
+            return play(["undo"] * steps)
+
+        @server.tool(annotations=ToolAnnotations(destructiveHint=True, openWorldHint=False))
+        def restart() -> CallToolResult:
+            """Discard the current puzzle attempt and return its initial board."""
+            with output.lock:
+                return output.render(service.restart_level(), "board")
+
+        @server.tool(annotations=interactive)
+        def press(key: Key) -> CallToolResult:
+            """Press a menu/introduction/AUTO key and return the board.
+
+            confirm enters the level under the map cursor or dismisses levelintro.
+            For ordinary puzzle movement use move; to read without acting use observe.
+            """
+            with output.lock:
+                return output.render(service.press(key), "board")
+
+        return server
 
     @server.tool(annotations=read_only)
     def get_state(view: View = "summary") -> CallToolResult:

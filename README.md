@@ -189,6 +189,18 @@ uv run python examples/client.py act '{"actions": "R8 U2 Z"}'
 uv run python examples/client.py choose_menu '{"name": "resume"}'
 ```
 
+### Simplified tool profile
+
+For smaller models, start the server with `baba-mcp --profile lite serve` or set
+`BABA_MCP_PROFILE=lite` in the MCP server environment. Reconnect the client after switching.
+The default `expert` profile preserves the existing API.
+
+Lite exposes only `observe()`, `move(direction, steps=1)`, `undo(steps=1)`, `restart()`,
+and `press(key)`. There is no `view` parameter or compact command language to learn.
+Each action returns the current board; `observe()` reads without advancing time.
+For example: `move(direction="right", steps=4)`. Keep unrelated MCP servers out of the
+client's gaming tool set; the server cannot hide another server's tools.
+
 ### Efficient agent use
 
 Read `get_board` once, then send a complete planned route in one `act` call. Compact notation:

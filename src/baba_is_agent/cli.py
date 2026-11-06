@@ -46,6 +46,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Native-state MCP for Baba Is You on Linux.")
     parser.add_argument("--version", action="version", version=f"baba-is-agent {__version__}")
     parser.add_argument("--game-dir", type=Path, help="Override BABA_GAME_DIR")
+    parser.add_argument(
+        "--profile",
+        choices=["expert", "lite"],
+        default=os.environ.get("BABA_MCP_PROFILE", "expert"),
+        help="MCP tool set (default: expert; or BABA_MCP_PROFILE)",
+    )
     commands = parser.add_subparsers(dest="command")
     commands.add_parser("serve", help="Serve MCP on stdio (default)")
     commands.add_parser(
@@ -73,7 +79,7 @@ def main(argv: list[str] | None = None) -> int:
                 raise BabaError("The native game bridge currently supports Linux only")
             service = GameService(settings)
             try:
-                create_server(service).run(transport="stdio")
+                create_server(service, profile=args.profile).run(transport="stdio")
             finally:
                 service.close()
     except (BabaError, OSError, ValueError) as error:
