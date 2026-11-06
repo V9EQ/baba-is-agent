@@ -1,6 +1,6 @@
 [project]
 name = "baba-is-agent"
-version = "0.2.0"
+version = "0.3.0"
 description = "Play the Linux Steam version of Baba Is You through MCP, without screenshots."
 readme = "README.md"
 requires-python = ">=3.13"

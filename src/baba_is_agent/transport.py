@@ -86,13 +86,14 @@ class BridgeSession:
                     return response
                 time.sleep(settings.poll_interval)
             detail = (
-                " The action's outcome is uncertain; inspect get_state before retrying."
+                " The action's outcome is uncertain: it may already have executed. "
+                "Call observe() before any further action; do not repeat the command automatically."
                 if operation != "state"
-                else ""
+                else " The game did not acknowledge a read. Check that it is running and responsive, "
+                "then try observe() again."
             )
             raise BridgeTimeoutError(
-                "No acknowledgement. Check that the bridge is installed and the game is running, "
-                "not suspended, and was restarted after installation." + detail
+                f"No acknowledgement within {settings.request_timeout:g}s." + detail
             )
         finally:
             # Do not leave a timed-out action queued for a future game launch.

@@ -65,8 +65,12 @@ def test_timeout_does_not_retry_or_leave_an_action_queued(settings):
     install(settings)
     with patch("baba_is_agent.transport.atomic_write", wraps=atomic_write) as writer:
         with BridgeClient(settings).session() as session:
-            with pytest.raises(BridgeTimeoutError, match="outcome is uncertain"):
+            with pytest.raises(BridgeTimeoutError, match="outcome is uncertain") as error:
                 session.request("move", "left")
+            assert "observe()" in str(error.value)
+            assert "may already have executed" in str(error.value)
+            assert "get_state" not in str(error.value)
+            assert "installed" not in str(error.value)
         assert writer.call_count == 1
     assert not (settings.transport_dir / "request.lua").exists()
 
